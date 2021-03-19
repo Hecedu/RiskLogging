@@ -8,6 +8,8 @@ using Risk.Game;
 using Microsoft.Extensions.Configuration;
 using Risk.Shared;
 using System.Threading;
+using Serilog;
+using System.Diagnostics;
 
 namespace Risk.Server.Hubs
 {
@@ -17,6 +19,7 @@ namespace Risk.Server.Hubs
         private readonly IConfiguration config;
         public const int MaxFailedTries = 5;
         public const int TimeoutInSeconds = 2;
+        Stopwatch responsetime = new Stopwatch();
         private Player currentPlayer => (game.CurrentPlayer as Player);
         private Risk.Game.Game game { get; set; }
 
@@ -230,6 +233,14 @@ namespace Risk.Server.Hubs
 
         public async Task AttackRequest(Location from, Location to)
         {
+            responsetime.Stop();
+            Log.Information("response by " + currentPlayer.Name + "took: " + responsetime.Elapsed + " seconds.");
+            Stopwatch processingtime = new Stopwatch();
+            processingtime.Start();
+            Log.Information("Attack request received from player " + currentPlayer.Name);
+            Log.Information("Attack request received by " + currentPlayer + " from location: " + from.Row + "," +from.Column);
+            Log.Information("Attack request received by " + currentPlayer + " from location: " + to.Row + "," + to.Column);
+
             if (game.GameState == GameState.GameOver)
                 return;
 
@@ -244,6 +255,7 @@ namespace Risk.Server.Hubs
                         await sendGameOverAsync();
                         return;
                     }
+                    Log.Information("Player " + currentPlayer.Name + "kicked out" ) ;
                     await Clients.Client(Context.ConnectionId).SendMessage("Server", $"Too many bad requests. No risk for you");
                     game.RemovePlayerByToken(currentPlayer.Token);
                     game.RemovePlayerFromBoard(currentPlayer.Token);
@@ -270,6 +282,7 @@ namespace Risk.Server.Hubs
                         }
                         catch (Exception ex)
                         {
+                            Log.Error("Attack exception caused by "+ currentPlayer.Name +": " + ex.Message);
                             attackResult = new TryAttackResult { AttackInvalid = true, Message = ex.Message };
                         }
                         if (attackResult.AttackInvalid)
@@ -315,6 +328,8 @@ namespace Risk.Server.Hubs
                 var badPlayer = game.Players.Single(p => p.Token == Context.ConnectionId) as Player;
                 badPlayer.Strikes++;
                 logger.LogInformation("Player {currentPlayer} tried to play when it's not their turn.  You now have {strikes} strikes!", badPlayer.Name, badPlayer.Strikes);
+                processingtime.Stop();
+                Log.Information("Processing attack request by "+ currentPlayer.Name + " took: " +processingtime.Elapsed + "seconds" );
                 await Clients.Client(badPlayer.Token).SendMessage("Server", "It's not your turn");
             }
         }
@@ -332,6 +347,8 @@ namespace Risk.Server.Hubs
 
         private async Task tellNextPlayerToAttack()
         {
+            responsetime.Restart();
+            responsetime.Start();
             if (game.GameState == GameState.GameOver)
                 return;
 
@@ -357,6 +374,7 @@ namespace Risk.Server.Hubs
             }
 
             game.CurrentPlayer = players[nextPlayerIndex];
+            Log.Information("Asked player " + currentPlayer.Name + " to Attack.");
             await Clients.Client(currentPlayer.Token).YourTurnToAttack(game.Board.SerializableTerritories);
         }
 
