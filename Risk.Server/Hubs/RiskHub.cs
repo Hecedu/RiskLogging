@@ -168,7 +168,7 @@ namespace Risk.Server.Hubs
 
         public async Task DeployRequest(Location l)
         {
-            Log.Information("deploy request received by player '" + currentPlayer.Name + "' To location: " + l.Column + "," + l.Row);
+            Log.Information("deploy request received from player '" + currentPlayer.Name + "' To location: " + l.Column + "," + l.Row);
             if (game.GameState == GameState.GameOver)
                 return;
 
@@ -183,7 +183,7 @@ namespace Risk.Server.Hubs
                         await sendGameOverAsync();
                         return;
                     }
-                    Log.Warning("Player: " + currentPlayer.Name + " kicked out due to too many bad deploy requests.")
+                    Log.Warning("Player: " + currentPlayer.Name + " kicked out due to too many bad deploy requests.");
                     logger.LogInformation("{0} has too many strikes.  Booting from game.", currentPlayer.Name);
                     await Clients.Client(Context.ConnectionId).SendMessage("Server", "Too many bad requests. No risk for you");
                     game.RemovePlayerByToken(currentPlayer.Token);
@@ -206,6 +206,7 @@ namespace Risk.Server.Hubs
                     else
                     {
                         logger.LogInformation("All armies that can be deployed have been deployed.  Beginning attack state.");
+                        Log.Information("Beggining attack phase");
                         await StartAttackPhase();
                     }
                 }
@@ -215,6 +216,7 @@ namespace Risk.Server.Hubs
                     logger.LogInformation("{currentPlayer} tried to deploy at {l} but deploy failed.  Increasing strikes.  You now have {strikes} strikes!",
                         currentPlayer.Name, l, currentPlayer.Strikes);
                     await Clients.Client(Context.ConnectionId).SendMessage("Server", "Did not deploy successfully");
+                    Log.Warning("Deploy request by player: " + currentPlayer.Name + " unsuccessful, sending new deploy request.");
                     await Clients.Client(currentPlayer.Token).YourTurnToDeploy(game.Board.SerializableTerritories);
                 }
             }
@@ -249,11 +251,13 @@ namespace Risk.Server.Hubs
             }
 
             game.CurrentPlayer = players[nextPlayerIndex];
+            Log.Information("asking player " + currentPlayer.Name + " to deploy");
             await Clients.Client(currentPlayer.Token).YourTurnToDeploy(game.Board.SerializableTerritories);
         }
 
         private async Task StartAttackPhase()
         {
+            Log.Information("Starting attack phase");
             game.CurrentPlayer = game.Players.First();
 
             await Clients.Client(currentPlayer.Token).YourTurnToAttack(game.Board.SerializableTerritories);
@@ -364,6 +368,7 @@ namespace Risk.Server.Hubs
 
         public async Task AttackComplete()
         {
+            Log.Information("Attack phase complete");
             if (game.GameState == GameState.GameOver)
                 return;
 
@@ -408,6 +413,7 @@ namespace Risk.Server.Hubs
 
         private async Task sendGameOverAsync()
         {
+            Log.Information("Game has finished");
             game.SetGameOver();
             var status = getStatus();
             logger.LogInformation("Game Over.\n\n{gameStatus}", status);

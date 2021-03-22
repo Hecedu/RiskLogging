@@ -53,6 +53,7 @@ namespace Risk.Signalr.ConsoleClient
 
             var serverAddress = config["serverAddress"] ?? "http://localhost:5000";
             Console.WriteLine($"Talking to the server at {serverAddress}");
+            Log.Information("Connected to server at: " + serverAddress);
 
             hubConnection = new HubConnectionBuilder()
                 .WithUrl($"{serverAddress}/riskhub")
@@ -60,27 +61,37 @@ namespace Risk.Signalr.ConsoleClient
 
             hubConnection.On<IEnumerable<BoardTerritory>>(MessageTypes.YourTurnToDeploy, async (board) =>
             {
+                Log.Information("Deploy request received");
                 var deployLocation = playerLogic.WhereDoYouWantToDeploy(board);
                 Console.WriteLine("Deploying to {0}", deployLocation);
+                Log.Information("Deploy response sent to" + deployLocation.Column + "," + deployLocation.Row);
                 await DeployAsync(deployLocation);
             });
 
             hubConnection.On<IEnumerable<BoardTerritory>>(MessageTypes.YourTurnToAttack, async (board) =>
             {
+                Log.Information("Attack response received.");
                 try
                 {
                     (var from, var to) = playerLogic.WhereDoYouWantToAttack(board);
+
                     Console.WriteLine("Attacking from {0} ({1}) to {2} ({3})", from, board.First(c => c.Location == from).OwnerName, to, board.First(c => c.Location == to).OwnerName);
+                    Log.Information("Attack response successful from (" + from.Column + "," + from.Row + ") to (" + to.Column + "," + to.Row + ").");
                     await AttackAsync(from, to);
                 }
-                catch
+                catch (Exception e)
                 {
+                    Log.Error("Exception caught: " + e.Message);
                     Console.WriteLine("Yielding turn (nowhere left to attack)");
                     await AttackCompleteAsync();
                 }
             });
 
-            hubConnection.On<string, string>(MessageTypes.SendMessage, (from, message) => Console.WriteLine("From {0}: {1}", from, message));
+            hubConnection.On<string, string>(MessageTypes.SendMessage, (from, message) =>
+            {
+                Console.WriteLine("From {0}: {1}", from, message);
+                Log.Information("Message received from " + from + ": " + message);
+            });
 
             hubConnection.On<string>(MessageTypes.JoinConfirmation, validatedName => 
             {
@@ -95,6 +106,7 @@ namespace Risk.Signalr.ConsoleClient
                 }
                 Console.Title = validatedName;
                 Console.WriteLine($"Successfully joined server. Assigned Name is {validatedName}");
+                Log.Information("Joining game as: " + validatedName);
             });
 
             await hubConnection.StartAsync();
