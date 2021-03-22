@@ -6,6 +6,8 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Serilog;
+using System.IO;
 
 namespace Risk.Signalr.ConsoleClient
 {
@@ -20,7 +22,14 @@ namespace Risk.Signalr.ConsoleClient
 
         static async Task Main(string[] args)
         {
-            if(args.Any(s=>s == "?" || s == "help" ))
+            var configuration = new ConfigurationBuilder()
+              .SetBasePath(Directory.GetCurrentDirectory())
+              .AddJsonFile("appsettings.json")
+              .Build();
+            Log.Logger = new LoggerConfiguration()
+                .ReadFrom.Configuration(configuration)
+                .CreateLogger();
+            if (args.Any(s=>s == "?" || s == "help" ))
             {
                 Console.WriteLine("Valid arguments:");
                 Console.WriteLine("\t--playerName joe");

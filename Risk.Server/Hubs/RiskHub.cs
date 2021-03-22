@@ -34,12 +34,14 @@ namespace Risk.Server.Hubs
 
         public override async Task OnConnectedAsync()
         {
+            Log.Information("Player with connection ID: " + Context.ConnectionId + " has connected.");
             logger.LogInformation(Context.ConnectionId);
             await base.OnConnectedAsync();
         }
 
         public override async Task OnDisconnectedAsync(Exception exception)
         {
+            Log.Information("Player with connection ID: " + Context.ConnectionId + ". Exception received: " + exception.Message);
             var player = game.RemovePlayerByToken(Context.ConnectionId);
             await BroadCastMessageAsync($"Player {player.Name} disconnected.  Removed from game.");
             await base.OnDisconnectedAsync(exception);
@@ -47,19 +49,23 @@ namespace Risk.Server.Hubs
 
         public async Task SendMessage(string user, string message)
         {
+            Log.Information("Message: " + message + " sent to player: " + user + ".");
             await Clients.All.SendMessage(user, message);
         }
 
         public async Task Signup(string user)
         {
+            Log.Information("user: " + user + " is attempting to log.");
             var duplicatePlayer = game.Players.ToList().FirstOrDefault(player => player.Token == Context.ConnectionId);
             if(duplicatePlayer != null)
             {
+                Log.Information("Log in attempt by user " + user + $" failed. There is already a player registered on your client named {duplicatePlayer.Name}");
                 await Clients.Client(duplicatePlayer.Token).SendMessage("Server", $"There is already a player registered on your client named {duplicatePlayer.Name}");
                 (duplicatePlayer as Player).Strikes++;
             }
             else if(game.GameState == GameState.Deploying || game.GameState == GameState.Attacking)
             {
+                Log.Information("Log in attempt by user " + user + " failed. There's already a game in progress.  Disconnect then try again once the game has finished.");
                 await Clients.Client(Context.ConnectionId).SendMessage("Server", "There's already a game in progress.  Disconnect then try again once the game has finished.");
             }
             else
@@ -74,6 +80,7 @@ namespace Risk.Server.Hubs
                 logger.LogInformation($"{Context.ConnectionId}: {user}");
                 var newPlayer = new Player(Context.ConnectionId, user);
                 game.AddPlayer(newPlayer);
+                Log.Information("User: " + baseName + " has joined the name as: " + user + ".");
                 await BroadCastMessageAsync(newPlayer.Name + " has joined the game");
                 await Clients.Client(newPlayer.Token).SendMessage("Server", "Welcome to the game " + newPlayer.Name);
                 await Clients.Client(newPlayer.Token).JoinConfirmation(newPlayer.Name);
@@ -82,6 +89,7 @@ namespace Risk.Server.Hubs
 
         private async Task BroadCastMessageAsync(string message)
         {
+            Log.Information("Message sent to all clients: " + message);
             await Clients.All.SendMessage("Server", message);
         }
 
@@ -100,41 +108,59 @@ namespace Risk.Server.Hubs
 
         public async Task RestartGame(string password, GameStartOptions startOptions)
         {
+            Stopwatch processingtime = new Stopwatch();
+            processingtime.Reset();
+            processingtime.Start();
+            Log.Information("Restart game called.");
             if(password == config["StartGameCode"])
             {
                 if(game.Players.Count() == 0)
                 {
+                    Log.Warning("Couldnt restart game, no players connected.");
                     await BroadCastMessageAsync("No players connected.  Unable to restart.");
                     return;
                 }
-
+                
                 await BroadCastMessageAsync("Restarting game...");
                 game.RestartGame(startOptions);
                 await StartDeployPhase();
                 await Clients.All.SendStatus(getStatus());
+                processingtime.Stop();
+                Log.Information("Restart Game successfuly executed in: " + processingtime.Elapsed);
             }
             else
             {
+                processingtime.Stop();
+                Log.Warning("Couldnt restart game, wrong password.");
                 await Clients.Client(Context.ConnectionId).SendMessage("Server", "Incorrect password.");
             }
         }
 
         public async Task StartGame(string Password)
         {
+            Stopwatch processingtime = new Stopwatch();
+            processingtime.Reset();
+            processingtime.Start();
+            Log.Information("Start game has been called");
             if (Password == config["StartGameCode"])
             {
                 await BroadCastMessageAsync("The Game has started");
                 game.StartGame();
                 await StartDeployPhase();
+                processingtime.Stop();
+                Log.Information("Start game processing time: " + processingtime.Elapsed);
             }
             else
             {
+                processingtime.Stop();
+                Log.Warning("Couldnt start game, wrong password.");
                 await Clients.Client(Context.ConnectionId).SendMessage("Server", "Incorrect password");
             }
         }
 
         private async Task StartDeployPhase()
         {
+            Log.Information("Deploy phase has started.");
             game.CurrentPlayer = game.Players.First();
 
             await Clients.Client(currentPlayer.Token).YourTurnToDeploy(game.Board.SerializableTerritories);
@@ -142,6 +168,7 @@ namespace Risk.Server.Hubs
 
         public async Task DeployRequest(Location l)
         {
+            Log.Information("deploy request received by player '" + currentPlayer.Name + "' To location: " + l.Column + "," + l.Row);
             if (game.GameState == GameState.GameOver)
                 return;
 
@@ -156,6 +183,7 @@ namespace Risk.Server.Hubs
                         await sendGameOverAsync();
                         return;
                     }
+                    Log.Warning("Player: " + currentPlayer.Name + " kicked out due to too many bad deploy requests.")
                     logger.LogInformation("{0} has too many strikes.  Booting from game.", currentPlayer.Name);
                     await Clients.Client(Context.ConnectionId).SendMessage("Server", "Too many bad requests. No risk for you");
                     game.RemovePlayerByToken(currentPlayer.Token);
