@@ -70,7 +70,7 @@ namespace Risk.Signalr.ConsoleClient
 
             hubConnection.On<IEnumerable<BoardTerritory>>(MessageTypes.YourTurnToAttack, async (board) =>
             {
-                Log.Information("Attack response received.");
+                Log.Information("Attack request received.");
                 try
                 {
                     (var from, var to) = playerLogic.WhereDoYouWantToAttack(board);
@@ -79,9 +79,9 @@ namespace Risk.Signalr.ConsoleClient
                     Log.Information("Attack response successful from (" + from.Column + "," + from.Row + ") to (" + to.Column + "," + to.Row + ").");
                     await AttackAsync(from, to);
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    Log.Error("Exception caught: " + e.Message);
+                    Log.Error("Exception caught: " + ex.Message);
                     Console.WriteLine("Yielding turn (nowhere left to attack)");
                     await AttackCompleteAsync();
                 }

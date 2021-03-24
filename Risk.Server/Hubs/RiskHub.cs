@@ -111,7 +111,7 @@ namespace Risk.Server.Hubs
             Stopwatch processingtime = new Stopwatch();
             processingtime.Reset();
             processingtime.Start();
-            Log.Information("Restart game called.");
+            Log.Information("Restart Game called.");
             if(password == config["StartGameCode"])
             {
                 if(game.Players.Count() == 0)
@@ -131,7 +131,7 @@ namespace Risk.Server.Hubs
             else
             {
                 processingtime.Stop();
-                Log.Warning("Couldnt restart game, wrong password.");
+                Log.Warning("Couldnt Restart Game, wrong password.");
                 await Clients.Client(Context.ConnectionId).SendMessage("Server", "Incorrect password.");
             }
         }
@@ -141,19 +141,19 @@ namespace Risk.Server.Hubs
             Stopwatch processingtime = new Stopwatch();
             processingtime.Reset();
             processingtime.Start();
-            Log.Information("Start game has been called");
+            Log.Information("Start Game called");
             if (Password == config["StartGameCode"])
             {
                 await BroadCastMessageAsync("The Game has started");
                 game.StartGame();
                 await StartDeployPhase();
                 processingtime.Stop();
-                Log.Information("Start game processing time: " + processingtime.Elapsed);
+                Log.Information("Start Game successfuly executed in : " + processingtime.Elapsed);
             }
             else
             {
                 processingtime.Stop();
-                Log.Warning("Couldnt start game, wrong password.");
+                Log.Warning("Couldnt Start Game, wrong password.");
                 await Clients.Client(Context.ConnectionId).SendMessage("Server", "Incorrect password");
             }
         }
@@ -206,7 +206,6 @@ namespace Risk.Server.Hubs
                     else
                     {
                         logger.LogInformation("All armies that can be deployed have been deployed.  Beginning attack state.");
-                        Log.Information("Beggining attack phase");
                         await StartAttackPhase();
                     }
                 }
@@ -216,7 +215,7 @@ namespace Risk.Server.Hubs
                     logger.LogInformation("{currentPlayer} tried to deploy at {l} but deploy failed.  Increasing strikes.  You now have {strikes} strikes!",
                         currentPlayer.Name, l, currentPlayer.Strikes);
                     await Clients.Client(Context.ConnectionId).SendMessage("Server", "Did not deploy successfully");
-                    Log.Warning("Deploy request by player: " + currentPlayer.Name + " unsuccessful, sending new deploy request.");
+                    Log.Warning("Deploy response by player: " + currentPlayer.Name + " unsuccessful, sending new deploy request.");
                     await Clients.Client(currentPlayer.Token).YourTurnToDeploy(game.Board.SerializableTerritories);
                 }
             }
@@ -251,7 +250,7 @@ namespace Risk.Server.Hubs
             }
 
             game.CurrentPlayer = players[nextPlayerIndex];
-            Log.Information("asking player " + currentPlayer.Name + " to deploy");
+            Log.Information("Asking player " + currentPlayer.Name + " to deploy.");
             await Clients.Client(currentPlayer.Token).YourTurnToDeploy(game.Board.SerializableTerritories);
         }
 
@@ -266,12 +265,11 @@ namespace Risk.Server.Hubs
         public async Task AttackRequest(Location from, Location to)
         {
             responsetime.Stop();
-            Log.Information("response by " + currentPlayer.Name + "took: " + responsetime.Elapsed + " seconds.");
             Stopwatch processingtime = new Stopwatch();
             processingtime.Start();
             Log.Information("Attack request received from player " + currentPlayer.Name);
-            Log.Information("Attack request received by " + currentPlayer + " from location: " + from.Row + "," +from.Column);
-            Log.Information("Attack request received by " + currentPlayer + " from location: " + to.Row + "," + to.Column);
+            Log.Information("Attack request by " + currentPlayer + " from location: " + from.Row + "," +from.Column);
+            Log.Information("Attack request by " + currentPlayer + " to location: " + to.Row + "," + to.Column);
 
             if (game.GameState == GameState.GameOver)
                 return;
@@ -287,7 +285,7 @@ namespace Risk.Server.Hubs
                         await sendGameOverAsync();
                         return;
                     }
-                    Log.Information("Player " + currentPlayer.Name + "kicked out" ) ;
+                    Log.Information("Player " + currentPlayer.Name + " kicked out for too many bad attack responses.");
                     await Clients.Client(Context.ConnectionId).SendMessage("Server", $"Too many bad requests. No risk for you");
                     game.RemovePlayerByToken(currentPlayer.Token);
                     game.RemovePlayerFromBoard(currentPlayer.Token);
@@ -361,14 +359,14 @@ namespace Risk.Server.Hubs
                 badPlayer.Strikes++;
                 logger.LogInformation("Player {currentPlayer} tried to play when it's not their turn.  You now have {strikes} strikes!", badPlayer.Name, badPlayer.Strikes);
                 processingtime.Stop();
-                Log.Information("Processing attack request by "+ currentPlayer.Name + " took: " +processingtime.Elapsed + "seconds" );
+                Log.Information("Processing attack request by "+ currentPlayer.Name + " took: " +processingtime.Elapsed);
                 await Clients.Client(badPlayer.Token).SendMessage("Server", "It's not your turn");
             }
         }
 
         public async Task AttackComplete()
         {
-            Log.Information("Attack phase complete");
+            Log.Information("Attack complete");
             if (game.GameState == GameState.GameOver)
                 return;
 
@@ -407,7 +405,7 @@ namespace Risk.Server.Hubs
             }
 
             game.CurrentPlayer = players[nextPlayerIndex];
-            Log.Information("Asked player " + currentPlayer.Name + " to Attack.");
+            Log.Information("Asking player " + currentPlayer.Name + " to attack.");
             await Clients.Client(currentPlayer.Token).YourTurnToAttack(game.Board.SerializableTerritories);
         }
 
